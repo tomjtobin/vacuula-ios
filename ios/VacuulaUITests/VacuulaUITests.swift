@@ -78,7 +78,7 @@ final class VacuulaUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Try again"].exists)
         capture("Schedule Error Disabled")
     }
-    func testHistoryStatsAndExpectedAreaComparison() throws {
+    func testHistoryStatsAndAutomaticMapAreaComparison() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--demo"]
         app.launch()
@@ -88,21 +88,14 @@ final class VacuulaUITests: XCTestCase {
         XCTAssertTrue(complete.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Cancelled · Schedule"].exists)
         capture("Cleaning History")
-        let target = app.buttons["expected-area-button"]
-        if !target.isHittable { app.swipeUp() }
-        target.tap()
-        let input = app.textFields["expected-area-input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap(); input.typeText("200")
-        app.buttons["save-area-target"].tap()
-        if !complete.isHittable { app.swipeDown() }
+        XCTAssertFalse(app.buttons["expected-area-button"].exists)
         complete.tap()
         XCTAssertTrue(app.navigationBars["Clean details"].waitForExistence(timeout: 5))
         let area = app.descendants(matching: .any).matching(identifier: "run-cleaned-area").firstMatch
         let comparison = app.descendants(matching: .any).matching(identifier: "run-area-comparison").firstMatch
         XCTAssertTrue(area.waitForExistence(timeout: 5))
         XCTAssertTrue(area.label.contains("237 sq ft"))
-        XCTAssertTrue(comparison.label.contains("118%"))
+        XCTAssertTrue(comparison.label.contains("88%"))
         capture("Cleaning History Stats")
     }
 

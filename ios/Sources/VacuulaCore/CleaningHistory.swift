@@ -27,6 +27,7 @@ public struct CleaningRecord: Decodable, Identifiable, Sendable {
     public let id: String
     public let robot: String
     public let floorplan: String?
+    public let persistent_rank_uuid: String?
     public let started_by: String?
     public let battery_consumed: Double?
     public let cleaning_complete: Bool?
@@ -68,11 +69,6 @@ public struct CleaningRecord: Decodable, Identifiable, Sendable {
         case "app": return "App"; case "button": return "Robot button"; case "schedule": return "Schedule"
         case "internal": return "Robot"; default: return "Unknown"
         }
-    }
-    public func areaPercentage(expectedSquareFeet: Double?) -> Double? {
-        guard isWholeFloor, let target = expectedSquareFeet, target.isFinite, target > 0, let squareFeet else { return nil }
-        let value = squareFeet / target * 100
-        return value.isFinite ? value : nil
     }
     public static func date(_ text: String?) -> Date? {
         guard let text else { return nil }

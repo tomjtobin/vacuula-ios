@@ -18,7 +18,7 @@ History is loaded on entering these screens, on pull/explicit refresh, and at mo
 
 ## Percentage and schedule association limits
 
-There is no measured unique-map-coverage percentage or expected floor area in the current run endpoint. Enter an expected cleanable whole-floor area through **All cleans and area target** / History. Rows compare reported area with that value and label it **of expected area**; room/unknown scopes do not use a whole-floor denominator. Overlapping passes can make an area comparison exceed 100%.
+Rows calculate **estimated coverage** automatically from the current saved map or identifiable requested rooms, excluding no-go areas. No manual target is required. Unknown/ambiguous scope produces no percentage. Overlapping passes can exceed 100%, and current-map edits can change historical estimates; see [history calculation rules](history.md#automatic-requested-area-estimates).
 
 Run records report `started_by:"schedule"`, but no schedule-event ID or immutable schedule version. Historical membership in an individual schedule cannot be proven from weekday/time: schedules can be edited/deleted and may overlap. The Schedule screen therefore labels its history as runs from any schedule. Reliable per-schedule histories need an execution-to-schedule identifier from the robot/server; the app does not infer associations or retroactively assign old runs to a current schedule.
 

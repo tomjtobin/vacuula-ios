@@ -3,7 +3,6 @@ import VacuulaCore
 
 struct CleaningHistoryView: View {
     @EnvironmentObject private var store: AppStore
-    @State private var settingTarget = false
     var scheduledOnly = false
     private var records: [CleaningRecord] { scheduledOnly ? store.cleaningHistory.filter(\.isScheduled) : store.cleaningHistory }
     var body: some View {
@@ -29,8 +28,8 @@ struct CleaningHistoryView: View {
                             LabeledContent("Cleans recorded", value: records.count.formatted())
                             if let last = records.first {
                                 LabeledContent("Latest cleaned area", value: areaText(last.squareFeet))
-                                if let percent = last.areaPercentage(expectedSquareFeet: store.expectedAreaSquareFeet) {
-                                    LabeledContent("Latest area vs target", value: percentText(percent))
+                                if let percent = store.requestedAreas[last.id]?.percentage(cleanedSquareMetres: last.squareMetres) {
+                                    LabeledContent("Latest estimated coverage", value: percentText(percent))
                                 }
                             }
                         } footer: { Text(scheduledOnly ? "Runs started by any schedule. The robot’s records do not identify the individual schedule." : "Intermediate snapshots of the same clean are combined. Statistics reflect the latest uploaded record, not live progress.") }
@@ -39,17 +38,13 @@ struct CleaningHistoryView: View {
                                 NavigationLink {
                                     CleaningRecordView(record: record)
                                 } label: {
-                                    CleaningRecordRow(record: record, target: store.expectedAreaSquareFeet)
+                                    CleaningRecordRow(record: record, estimate: store.requestedAreas[record.id], unavailableReason: store.areaUnavailableReason(record))
                                 }.accessibilityIdentifier("cleaning-record-" + record.id)
                             }
                         }
                     }
                 }
-                Section {
-                    Button { settingTarget = true } label: {
-                        LabeledContent("Whole-floor target", value: store.expectedAreaSquareFeet.map { areaText($0) } ?? "Set area")
-                    }.accessibilityIdentifier("expected-area-button")
-                } footer: { Text("The robot reports cleaned area in square metres, shown here in square feet. Set the expected cleanable whole-floor area to compare runs. Room cleans are not compared with this target.") }
+
             }
         }
         .navigationTitle(scheduledOnly ? "Scheduled cleans" : "Cleaning history")
@@ -60,13 +55,13 @@ struct CleaningHistoryView: View {
             Button("Refresh history", systemImage: "arrow.clockwise") { Task { await store.refreshHistory() } }
                 .disabled(store.historyLoading)
         }
-        .sheet(isPresented: $settingTarget) { NavigationStack { ExpectedAreaEditor() } }
     }
 }
 
 struct CleaningRecordRow: View {
     let record: CleaningRecord
-    let target: Double?
+    let estimate: RequestedAreaEstimate?
+    let unavailableReason: String
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let date = record.startDate { Text(date.formatted(date: .abbreviated, time: .shortened)).font(.headline) }
@@ -74,10 +69,10 @@ struct CleaningRecordRow: View {
             Label(record.outcome + " · " + record.source, systemImage: record.sourceSymbol)
                 .font(.subheadline).foregroundStyle(.secondary)
             Text(areaText(record.squareFeet) + " · " + durationText(record.timing?.duration)).font(.subheadline)
-            if let percent = record.areaPercentage(expectedSquareFeet: target) {
-                Text(percentText(percent) + " of expected area").font(.footnote).foregroundStyle(.secondary)
+            if let percent = estimate?.percentage(cleanedSquareMetres: record.squareMetres) {
+                Text(percentText(percent) + " estimated coverage").font(.footnote).foregroundStyle(.secondary)
             } else {
-                Text(record.isWholeFloor ? "Set expected area to show %" : "Whole-floor % unavailable for this scope")
+                Text(unavailableReason)
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }.padding(.vertical, 4)
@@ -99,14 +94,14 @@ struct RecentRunsSection: View {
                 else if records.isEmpty { Text(scheduledOnly ? "No scheduled runs recorded yet." : "No previous cleans recorded yet.").foregroundStyle(.secondary) }
                 ForEach(Array(records.prefix(3))) { record in
                     NavigationLink { CleaningRecordView(record: record) } label: {
-                        CleaningRecordRow(record: record, target: store.expectedAreaSquareFeet)
+                        CleaningRecordRow(record: record, estimate: store.requestedAreas[record.id], unavailableReason: store.areaUnavailableReason(record))
                     }.accessibilityIdentifier((scheduledOnly ? "scheduled-recent-" : "home-recent-") + record.id)
                 }
                 NavigationLink { CleaningHistoryView(scheduledOnly: scheduledOnly) } label: {
-                    Text(scheduledOnly ? "All scheduled cleans and area target" : "All cleans and area target")
+                    Text(scheduledOnly ? "All scheduled cleans" : "All cleans")
                 }
             } header: { Text(scheduledOnly ? "Scheduled runs" : "Recent cleans") } footer: {
-                Text(scheduledOnly ? "Includes runs started by any schedule; records do not identify which one. Percentages compare reported area with your whole-floor target." : "Start source, elapsed time and reported area. Percentages compare with your whole-floor target, rather than measuring unique map coverage.")
+                Text(scheduledOnly ? "Includes runs started by any schedule; records do not identify which one. Percentages estimate cleaned area against the current saved floor or requested rooms." : "Start source, elapsed time and reported area. Coverage is estimated from reported cleaned area and the current saved floor or requested rooms.")
             }
         }
     }
@@ -128,15 +123,19 @@ struct CleaningRecordView: View {
                 LabeledContent("Battery used", value: record.batteryUsed.map { percentText($0) } ?? "Unavailable")
             }
             Section {
-                if let percent = record.areaPercentage(expectedSquareFeet: store.expectedAreaSquareFeet) {
-                    LabeledContent("Area vs target", value: percentText(percent)).accessibilityIdentifier("run-area-comparison")
-                    LabeledContent("Whole-floor target", value: areaText(store.expectedAreaSquareFeet))
+                if let estimate = store.requestedAreas[record.id] {
+                    if let percent = estimate.percentage(cleanedSquareMetres: record.squareMetres) {
+                        LabeledContent("Estimated coverage", value: percentText(percent)).accessibilityIdentifier("run-area-comparison")
+                    }
+                    LabeledContent("Requested area (estimated)", value: areaText(estimate.squareFeet))
+                    LabeledContent("Scope", value: estimate.scope)
+                    LabeledContent("Current saved map", value: estimate.mapName)
                 } else {
-                    Text(record.isWholeFloor ? "Set a whole-floor area target in History to compare cleaned area." : "Whole-floor comparison is unavailable for room cleans or records without a cleaning scope.")
+                    Text(store.areaUnavailableReason(record))
                         .foregroundStyle(.secondary)
                 }
-            } header: { Text("Area comparison") } footer: {
-                Text("This compares reported area with your target. It is not measured coverage of every part of the floor: overlapping passes may count more than once, so values can exceed 100%. A cancelled clean is not treated as completed.")
+            } header: { Text("Requested area") } footer: {
+                Text("Estimated from the current saved map’s free space, excluding no-go areas and limited to requested rooms when known. Historical requests may have used different maps or room boundaries. Reported passes can overlap, so estimates may exceed 100%. A cancelled clean remains cancelled.")
             }
             Section("Cleaning segments") {
                 ForEach(Array((record.runs ?? []).enumerated()), id: \.offset) { index, pass in
@@ -153,36 +152,6 @@ struct CleaningRecordView: View {
                 }
             }
         }.navigationTitle("Clean details").navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-struct ExpectedAreaEditor: View {
-    @EnvironmentObject private var store: AppStore
-    @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
-    private var value: Double? {
-        guard let value = Double(text.trimmingCharacters(in: .whitespacesAndNewlines)), value.isFinite, value > 0, value <= 1_000_000 else { return nil }
-        return value
-    }
-    var body: some View {
-        Form {
-            Section {
-                TextField("Square feet", text: $text).keyboardType(.decimalPad).accessibilityIdentifier("expected-area-input")
-            } header: { Text("Expected cleanable area (sq ft)") } footer: {
-                Text("Enter the whole-floor area you expect the robot to clean, excluding areas it cannot reach. This target is saved on this device for this robot and server. It does not change the robot’s map or schedule.")
-            }
-            if store.expectedAreaSquareFeet != nil { Button("Remove target", role: .destructive) { store.setExpectedArea(nil); dismiss() } }
-        }
-        .navigationTitle("Area target").navigationBarTitleDisplayMode(.inline)
-        .onAppear { text = store.expectedAreaSquareFeet.map { String($0) } ?? "" }
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { store.setExpectedArea(value); dismiss() }
-                    .foregroundStyle(value == nil ? Color.secondary : Color.teal).disabled(value == nil)
-                    .accessibilityIdentifier("save-area-target")
-            }
-        }
     }
 }
 

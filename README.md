@@ -11,7 +11,7 @@ A native iPhone app for [Vacuula](https://github.com/vacuula/vacuula), the commu
 - View saved maps, select configured rooms, zoom/pan and rotate all maps in 90° increments.
 - Create and edit Gen4 weekly cleaning schedules.
 - Review recent cleans and history, including run source, duration and cleaned square feet.
-- Compare whole-floor cleaned area with a user-entered expected area.
+- Estimate coverage automatically against the current saved floor or requested rooms, excluding no-go areas.
 - View notification activity and foreground banners when supported by the server.
 
 ## Build and run
@@ -38,7 +38,7 @@ See [iOS development notes](ios/README.md) for preview modes and validation deta
 
 This is an early development app. Gen4 scheduling, history and room cleaning are implemented; Gen3 support is more limited. Initial robot setup, room editing and some preferences remain in the server’s web app. Foreground notifications do not provide background APNs push alerts.
 
-History can distinguish scheduled runs from other sources when the robot reports them. Linking a run to an individual schedule still requires server support. The area comparison is reported cleaned area divided by the user’s expected area; it is not a spatial map-coverage measurement.
+History can distinguish scheduled runs from other sources when the robot reports them. Linking a run to an individual schedule still requires server support. Coverage estimates compare reported cleaned area with the current saved floor or identifiable requested rooms. They can change after map edits and are not measurements of unique spatial coverage.
 
 ## Specifications
 

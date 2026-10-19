@@ -23,16 +23,6 @@ struct HistoryTests {
         #expect(turbo.batteryUsed == 12)
         #expect(CleaningRecord.sessions(raw, robot: "other").isEmpty)
     }
-    @Test func comparisonNeedsKnownWholeFloorScopeAndUserTarget() throws {
-        let run = try record()
-        #expect(run.areaPercentage(expectedSquareFeet: nil) == nil)
-        #expect(run.areaPercentage(expectedSquareFeet: 0) == nil)
-        #expect(run.areaPercentage(expectedSquareFeet: .infinity) == nil)
-        #expect(abs(try #require(run.areaPercentage(expectedSquareFeet: 200)) - 118.403) < 0.01)
-        #expect(try record(track: "kitchen").areaPercentage(expectedSquareFeet: 200) == nil)
-        #expect(try record(area: "-1").squareFeet == nil)
-        #expect(try record(area: "null").squareFeet == nil)
-    }
     @Test func cancelledIsNotCompletedEvenWhenFirmwareClosesTheClean() throws {
         #expect(try record(state: "canceled", complete: true).outcome == "Cancelled")
         #expect(try record(state: "not_reachable", complete: true).outcome == "Needs attention")

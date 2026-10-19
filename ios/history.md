@@ -15,13 +15,17 @@ The live server returned ten records representing six distinct robot/start-time 
 
 `cleaning_complete:true` alone does not mean the whole floor was cleaned: the live records include `state:"canceled"` with that flag true. Cancellation and error/unreachable states take precedence; Completed requires closed + all segments done. Paused/in-progress snapshots are labelled as snapshots.
 
-## Expected space and percentage
+## Automatic requested-area estimates
 
-The endpoint provides no expected-area or measured unique-coverage percentage. Saved-map free pixels and a historical record's `floorplan` field do not establish a trustworthy expected cleaning scope; in these records `floorplan` is a run-specific UUID.
+History no longer asks for a manual area target. Home, History and Schedule show **estimated coverage**, calculated as reported cleaned area divided by cleanable area from a current saved map. Run details show the estimated requested square feet, scope and saved map name.
 
-**Whole-floor target → Set area** lets the user enter expected cleanable square feet. It is saved locally per server/robot, independently of schedules/maps. Area vs target = reported cleaned square feet / entered square feet × 100. There is no default or inferred denominator. Missing/nonpositive/nonfinite targets and room/unknown-scope cleans produce no percentage. Whole-floor scope requires every segment to explicitly have an empty track UUID. The current target applies to whole-floor records; changing the target changes historical comparisons too.
+Whole-floor records require every segment to explicitly report an empty `track_uuid`. They use an explicit saved-map reference when available; otherwise exactly one promoted saved map is required. `floorplan` is used directly only if it actually matches a saved map ID; an uploaded run-result map is never used as the denominator. An explicit but missing `persistent_rank_uuid` does not fall back to an unrelated active map.
 
-This is explicitly an **area comparison**, not measured coverage: overlapping passes may count more than once, and percentages may exceed 100. Room cleans need their own expected area before a reliable comparison can be offered. The app does not cap values or call a cancelled run completed to make the ratio look successful.
+Room records require every segment to have a nonempty track ID and all requested IDs to resolve to enabled cleaning polygons on exactly one saved map. Repeated room IDs and overlapping rooms count once in the requested area. Mixed whole-floor/room scope, absent track information, ambiguous maps or missing rooms produce an unavailable explanation.
+
+The estimator counts cell centres classified as free, clipped to the union of requested room polygons when applicable, and excludes the union of enabled no-go polygons/lines. Walls and unknown cells do not count. Gen4 PGM resolution is treated as millimetres per original pixel; `img_size` scales the returned raster on both axes. No-go polylines use the server promotion width of nine original pixels. The server currently returns full-resolution maps; downsampled inputs are scaled physical-area estimates and may differ at boundaries. Cropping, zoom and map rotation do not change the calculation. Invalid scale, malformed active exclusions or failed map/boundary loading leave estimates unavailable; history statistics still load.
+
+These are explicitly **current-map estimates**, not historical scope snapshots or verified unique coverage. A map/room edit or promotion can change historical estimates. Reported passes may overlap, so ratios can exceed 100%; cancelled/error runs retain their outcome. Saved free space cannot prove temporary obstacle reachability. The app does not infer a schedule’s rooms from timing alone. Future server scope snapshots would make these comparisons historically stable; see the [server contract](../server-schedule-run-association-spec.md#requested-area-and-cleaning-coverage).
 
 ## Schedule loading correction
 
@@ -29,6 +33,8 @@ The previous screenshot's raw `cancelled` error could originate from a cancelled
 
 ## Evidence and validation
 
-Read-only live response: [validation/history/live-runs.json](validation/history/live-runs.json). Unit tests use a retained fixture, including a scheduled cancelled clean, and perform no network operations. See [validation/README.md](validation/README.md) for current build/UI results. No live schedule or physical control was changed by this work.
+Read-only live response: [validation/history/live-runs.json](validation/history/live-runs.json). Unit tests use an anonymized response fixture, including a scheduled cancelled clean, and perform no network operations. See [validation/README.md](validation/README.md) for current build/UI results. No live schedule or physical control was changed by this work.
 
-Current validation: Xcode build succeeds; all 25 core tests pass. Simulator checks pass for schedule loading/failure disabled states, schedule create/edit/delete, and history target entry/statistics. Screenshot review confirms the grey action appearance and displayed area comparison. Live source data was read without issuing a robot control or schedule mutation.
+Earlier validation covered schedule loading/failure disabled states, schedule create/edit/delete and history statistics. The automatic-area update builds successfully and passes all 39 core tests. A read-only check of the current server’s active map and no-go polygon produces about 268 sq ft of estimated cleanable area. No robot control or schedule mutation was issued.
+
+Automatic-area validation adds geometry, unit conversion, no-go polygon/line, room union, missing scope and ambiguous map tests. The preview history test verifies an automatic 88% estimate without an area editor. See local validation artifacts for this run’s results.

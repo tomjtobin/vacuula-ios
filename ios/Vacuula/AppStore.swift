@@ -29,7 +29,8 @@ final class AppStore: ObservableObject {
     @Published var historyLoading = false
     @Published var historyLoaded = false
     @Published var historyError: String?
-    @Published var expectedAreaSquareFeet: Double?
+    @Published var requestedAreas = [String: RequestedAreaEstimate]()
+    @Published var areaEstimateError: String?
     @Published var schedules = [CleaningSchedule]()
     @Published var scheduleLoaded = false
     @Published var scheduleLoading = false
@@ -96,14 +97,22 @@ final class AppStore: ObservableObject {
         scheduleReadTask?.cancel(); scheduleReadTask = nil
         restoreCleaningPreferences(); historyUpdatedAt = nil
         cleaningHistory = []; historyLoading = false; historyLoaded = false; historyError = nil
-        let target = defaults.double(forKey: areaTargetKey)
-        expectedAreaSquareFeet = target > 0 ? target : nil
+        requestedAreas = [:]; areaEstimateError = nil
         schedules = []; scheduleLoaded = false; scheduleLoading = false; scheduleError = nil; scheduleNeedsRefresh = false; scheduleEnabled = true
     }
-    private var areaTargetKey: String { "whole-floor-area:" + (server?.origin.absoluteString ?? "") + ":" + (selectedID ?? "") }
-    func setExpectedArea(_ value: Double?) {
-        expectedAreaSquareFeet = value.flatMap { $0.isFinite && $0 > 0 && $0 <= 1_000_000 ? $0 : nil }
-        if !demo { defaults.set(expectedAreaSquareFeet, forKey: areaTargetKey) }
+    func areaUnavailableReason(_ record: CleaningRecord) -> String {
+        if historyLoading { return "Estimating requested area…" }
+        return areaEstimateError ?? "The requested saved map or rooms could not be identified."
+    }
+    private func calculateRequestedAreas(_ records: [CleaningRecord], maps: [SavedMapArea]) async -> [String: RequestedAreaEstimate] {
+        await Task.detached(priority: .utility) {
+            var results = [String: RequestedAreaEstimate]()
+            for record in records {
+                if Task.isCancelled { break }
+                results[record.id] = SavedMapArea.estimate(record: record, maps: maps)
+            }
+            return results
+        }.value
     }
     func refreshHistory() async {
         guard isActive, !historyLoading else { return }
@@ -111,6 +120,11 @@ final class AppStore: ObservableObject {
             if !historyLoaded {
                 let json = #"[{"id":"preview-done","robot":"preview","started_by":"app","cleaning_complete":true,"battery_consumed":12,"timing":{"start":"2026-10-18T16:00:00Z","end":"2026-10-18T16:28:00Z"},"runs":[{"track_uuid":"","state":"done","stats":{"area":22},"settings":{"mode":"turbo","navigation_mode":"normal"}}]},{"id":"preview-cancelled","robot":"preview","started_by":"schedule","cleaning_complete":true,"timing":{"start":"2026-10-19T08:40:00Z","end":"2026-10-19T08:42:32Z"},"runs":[{"track_uuid":"","state":"canceled","stats":{"area":1.28}}]}]"#
                 cleaningHistory = CleaningRecord.sessions((try? JSONDecoder().decode([CleaningRecord].self, from: Data(json.utf8))) ?? [], robot: "preview")
+                let map = try? JSONDecoder().decode(FloorMap.self, from: Data(#"{"id":"preview-area","name":"Preview floor","promoted":true}"#.utf8))
+                let raster = try? JSONDecoder().decode(MapRaster.self, from: Data(#"{"width":5,"height":5,"legend":{"1":"free"},"rle":[[1,25]],"img_size":[5,5],"metadata":{"resolution":1000}}"#.utf8))
+                if let map, let raster, let saved = try? SavedMapArea(map: map, raster: raster, boundaries: []) {
+                    requestedAreas = await calculateRequestedAreas(cleaningHistory, maps: [saved])
+                }
                 historyLoaded = true
             }
             return
@@ -123,6 +137,27 @@ final class AppStore: ObservableObject {
             let value = try await api.cleaningHistory(robot)
             try assertCurrent(token)
             cleaningHistory = value; historyLoaded = true; historyUpdatedAt = Date()
+            requestedAreas = [:]; areaEstimateError = nil
+            do {
+                let floors = try await api.maps(robot)
+                try assertCurrent(token)
+                var savedMaps = [SavedMapArea]()
+                for floor in floors {
+                    async let raster = api.map(robot, map: floor)
+                    async let zones = api.boundaries(robot, map: floor)
+                    let (image, boundaries) = try await (raster, zones)
+                    try assertCurrent(token)
+                    let saved = try await Task.detached(priority: .utility) { try SavedMapArea(map: floor, raster: image, boundaries: boundaries) }.value
+                    savedMaps.append(saved)
+                }
+                let estimates = await calculateRequestedAreas(value, maps: savedMaps)
+                try assertCurrent(token)
+                requestedAreas = estimates
+            } catch {
+                if token == robotSession, !Task.isCancelled, !RequestFailure.isCancellation(error) {
+                    areaEstimateError = "Saved map area couldn’t be loaded. Pull to refresh to try again."
+                }
+            }
         } catch {
             if token == robotSession, !Task.isCancelled, !RequestFailure.isCancellation(error) {
                 historyError = "Cleaning history couldn’t be loaded. " + error.localizedDescription

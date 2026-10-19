@@ -150,11 +150,50 @@ Use an additive Alembic migration and indexes on robot/start time, schedule/revi
 
 Reconcile existing scheduled runs with existing notifications where possible, creating unassigned executions even without historical schedules. Only assign historical schedule ownership when an observation/import establishes which revision existed at that time. First seeing a current schedule after an old run is not sufficient. A later edit, disable or deletion does not remove a valid earlier link. Backfill is deterministic, idempotent and restartable.
 
-## Expected-area percentages
+## Requested area and cleaning coverage
 
-Schedule association alone does not establish expected floor area. The current iOS app has a local user-entered whole-floor target; v1 may continue using it. Do not label cleaned-area / bounding-box-area as measured coverage.
+Product requirement (2026-10-19): the user must not enter a whole-floor target in History. The intended comparison is “how much of the requested cleaning area was cleaned?” It applies to app, robot-button and scheduled runs. Schedule identity is useful for grouping, but area calculation must not require a uniquely matched schedule if the run’s map and requested scope are independently known.
 
-Optional follow-up for shared, historically stable percentages: store an explicit expected-area value and scope/unit alongside each schedule revision, snapshot it onto the execution, and return `expected_area_m2` plus its provenance. Only calculate the ratio for compatible scopes. Keep room targets separate from whole-floor targets. Overlapping passes can produce a ratio above 100%; it remains an area comparison, not measured unique map coverage.
+### Snapshot the intended scope
+
+Preserve the firmware upload’s nullable `persistent_rank_uuid` separately from the run-result `rank_uuid` / existing `floorplan`. Resolve reported segment `track_uuid` values against the original saved map’s zone revisions. An explicitly unrestricted whole-floor request targets that saved floor’s cleanable area. A room request targets the union of the requested rooms. Never infer unrestricted scope from an absent/unknown track value, unknown command payload, or merely `started_by:"schedule"`.
+
+At execution/request time, retain the original saved-map revision, requested zone IDs and geometry revisions, enabled no-go geometry, and area calculation version. For scheduled runs, use the matched schedule revision’s command scope only when the association and map scope are established. For app/manual requests, record the accepted command’s scope; for robot-button starts, use authoritative firmware map/scope evidence. Reconcile uploads against those snapshots. A later map edit, room edit, promotion, schedule change or deletion must not change historical targets.
+
+### Derive the target automatically
+
+Use the original saved map’s full-resolution free-space classification and physical pixel scale. Count the union of eligible free cells, excluding enabled no-go polygons. For room requests, intersect that mask with the union of the requested room polygons before counting. Count overlapping rooms once. Exclude walls and unknown cells; never use image dimensions, the map bounding box, the partial run-result map, or the latest run’s cleaned area as the denominator.
+
+Validate coordinate orientation, physical resolution units and any downsample factor against the firmware/source map format. Use original cells for calculation; the display’s majority-vote downsampling and app rotation must not affect area. Define one consistent polygon boundary rule and retain the algorithm version. Missing/invalid scale or geometry yields an unavailable target, not zero or a guessed area. Saved free space is an estimate of cleanable space; it cannot establish actual reachability around temporary furniture or obstacles.
+
+### Additive run API contract
+
+Expose a nullable `area_comparison` object on run/history records, independent of schedule association:
+
+```json
+{
+  "scope": "rooms",
+  "persistent_map_id": "saved-map-id",
+  "map_revision_id": "immutable-map-revision",
+  "zone_ids": ["kitchen", "hall"],
+  "target_area_m2": 24.5,
+  "cleaned_area_m2": 20.0,
+  "area_percent": 81.632653,
+  "method": "reported_area_vs_requested_free_space_v1",
+  "status": "estimated",
+  "unavailable_reason": null
+}
+```
+
+`scope` is `whole_floor`, `rooms` or `unknown`. Target values must be positive, finite and tied to a retained scope snapshot. Preserve the existing raw run statistics. De-duplicate intermediate/final snapshots before computing the cleaned area; do not sum repeat uploads. If segment area counters are cumulative or overlap/retries cannot be separated, retain that uncertainty rather than presenting the total as unique space covered. Missing historical evidence returns null comparison values with a reason such as `original_map_unknown`, `scope_unknown`, `map_revision_unavailable` or `invalid_geometry`.
+
+`area_percent` compares compatible reported cleaned area with the requested target. It is an estimate and may exceed 100% if reported passes overlap. Do not clamp that ratio to imply successful coverage. Cancelled/error outcomes remain cancelled/error even when an area ratio reaches 100%. For a true spatial coverage percentage, calculate the union of cleaned cells intersected with the requested mask; expose that separately with a distinct method only when reliable cleaned-cell evidence exists. A path centreline alone is insufficient without validated cleaning width and coordinate alignment.
+
+### iOS presentation and historical backfill
+
+The iOS app now removes the manual **Whole-floor target / Set area** editor and derives current-map estimates from existing endpoints. Once this contract is available, replace those fallback estimates with stable per-run requested-area snapshots. Show cleaned sq ft, requested sq ft, and an explicitly estimated percentage in Home, History and Schedule. Room requests use their room target; unrestricted scheduled requests use the saved whole-floor target. Show a plain unavailable explanation for legacy/unknown scope without asking the user to enter an area. Detail copy must distinguish an area estimate from verified unique coverage.
+
+Backfill historical targets only from retained original uploads and map/zone revisions that establish the intended scope. Never match an old run to today’s map or schedule merely because only one currently exists.
 
 ## Acceptance tests
 
@@ -175,3 +214,14 @@ Optional follow-up for shared, historically stable percentages: store an explici
 Start from the deployed PR #30-capable server version, preserving subsequent upstream changes. Relevant source areas in the inspected tree: `handlers/app.py` (command bridge/run API), `gen4/handlers.py` (run ingestion), `notifications.py` (committed notification ingestion), `models/`, `handlers/events.py`, router registration and Alembic migrations. Prefer a dedicated schedule-history/correlation module and worker over placing matching logic in socket callbacks.
 
 Deliver: migration, schedule observation/revision capture, durable reconciliation, additive run fields/read endpoints/SSE, automated acceptance coverage, and protocol/API documentation. Firmware changes, moving scheduling into the server, push delivery, and retrospectively guessing ownership from current schedules are outside this change.
+
+### Requested-area acceptance cases
+
+- Unrestricted whole-floor schedule uses its original saved map’s free space minus no-go areas; no user-entered target is required.
+- Room run targets the union of requested rooms clipped to free space; overlapping rooms/no-go areas are counted once.
+- Early cancellation cannot reduce the denominator to the partially explored run-result map.
+- Editing/deleting a room, map or schedule does not change an existing run’s requested area.
+- App, scheduled and robot-button runs follow the same scope rules; unknown original scope remains unavailable.
+- Missing scale, ambiguous original map, absent geometry revisions and unresolvable zones produce explicit unavailable reasons.
+- Duplicate/intermediate uploads, quickboost/resume and repeat passes do not silently inflate unique coverage. Reported-area estimates remain labelled separately from spatial coverage.
+- Map display rotation and downsampling do not affect area; test coordinate orientation, units, polygon edges and partial cell policy.

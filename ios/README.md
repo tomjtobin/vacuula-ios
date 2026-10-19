@@ -11,7 +11,7 @@ A SwiftUI LAN client for the existing Vacuula server. Open [Vacuula.xcodeproj](V
 - Saved floor maps with RLE validation, cropped display with preserved coordinates, dock marker, zone/no-go overlays, pan/zoom/reset, a text room-selection list, and Gen4 room cleaning after revalidating map and zone eligibility.
 - Native Gen4 weekly scheduling: create whole-floor/room cleans, edit timing, enable/disable and delete, with robot read-back confirmation. See [scheduling.md](scheduling.md).
 - Activity summary and foreground event banners backed by server notification history. See [activity.md](activity.md).
-- Gen4 cleaning History with deduplicated sessions, cleaned square feet, duration/battery and an optional local expected-area comparison. See [history.md](history.md).
+- Gen4 cleaning History with deduplicated sessions, cleaned square feet, duration/battery and an automatic current-map requested-area estimate. See [history.md](history.md).
 - Recent cleans on Home and scheduled-run history in Schedule, with source icons, duration and expected-area comparisons. See [cleaning-options-and-recent-runs.md](cleaning-options-and-recent-runs.md).
 - Global saved map orientation at 0°/90°/180°/270°, including room/no-go overlays and base position. See [map-orientation.md](map-orientation.md).
 - Server details, robot identity, local network recovery and links to the web app for setup and room editing.

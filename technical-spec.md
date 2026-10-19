@@ -305,7 +305,7 @@ Native Gen4 scheduling is implemented in the Schedule tab. Create recurring clea
 
 ## Cleaning history and loading readiness — 2026-10-19
 
-The native History tab reads existing Gen4 run records, combines intermediate/final snapshots per robot/start time, distinguishes cancellation from successful completion, and shows cleaned sq ft, elapsed duration, battery and segment settings. Users may save a local whole-floor area target for explicitly labelled area comparisons; no expected area is inferred from saved maps. The Schedule tab now shows loading/incomplete/retry states, suppresses request cancellation errors and visibly greys unavailable actions until a successful read. See [history implementation and data semantics](ios/history.md).
+The native History tab reads existing Gen4 run records, combines intermediate/final snapshots per robot/start time, distinguishes cancellation from successful completion, and shows cleaned sq ft, elapsed duration, battery and segment settings. Requested-area estimates are calculated automatically from the current saved floor or identifiable requested rooms, excluding no-go areas; no manual target is required. Unknown or ambiguous scope remains unavailable. Percentages are estimates, and current-map changes can affect historical comparisons. The Schedule tab now shows loading/incomplete/retry states, suppresses request cancellation errors and visibly greys unavailable actions until a successful read. See [history implementation and data semantics](ios/history.md).
 
 
 ## Persistent defaults and recent runs — 2026-10-19
