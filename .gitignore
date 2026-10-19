@@ -1,0 +1,23 @@
+.DS_Store
+ios/.build/
+ios/.build-xcode/
+ios/.derivedData/
+ios/.runtimes/
+ios/.swiftpm/
+**/xcuserdata/
+*.xcuserstate
+ios/.derivedData27/
+ios/.build-xcode27/
+
+# Local robot firmware backups include device credentials and private diagnostics.
+firmware-backups/
+
+# Private discovery captures and generated validation artifacts.
+evidence/
+ios/validation/
+.local-publication-backup/
+**/.build*/
+**/.derivedData*/
+*.xcresult/
+__pycache__/
+*.pyc
