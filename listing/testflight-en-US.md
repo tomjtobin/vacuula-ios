@@ -55,7 +55,7 @@ Please include your iPhone model, iOS version, robot model and server version wi
 
 Vacuula Remote is an independent local-network client for the open-source Vacuula server. It does not use a developer-hosted production account service. Live operation requires a compatible Neato robot connected to a Vacuula server on the same local network. Local Network permission is used to discover and communicate with that server.
 
-Review instructions for the next uploaded build (0.1.0 build 3), after verifying that build contains the visible demo:
+Review instructions for the next uploaded build (1.0.0 build 4):
 
 1. Launch the app. On the server connection screen, tap **Try demo** in the top-right toolbar. No account, server or robot is needed for demo access. If already connected to a server, **Settings → Try demo** opens the same demo.
 2. The persistent **Demo · Sample data** strip confirms sample mode. Explore Robot, Rooms, Schedule, History and Settings. Open the activity bell, Preview floor map, schedule forms and clean details.
