@@ -195,7 +195,11 @@ struct ScheduleEditor: View {
                 mapsReady = true
             } else {
                 mode = store.mode; gentle = store.gentle
-                if store.demo { mapsReady = true; return }
+                if store.demo {
+                    floors = store.maps
+                    mapID = floors.first?.id ?? ""; mapsReady = true
+                    return
+                }
                 guard let api = store.api, let robot = store.robot else { return }
                 do {
                     floors = try await api.maps(robot).filter { $0.canClean(generation: robot.type) }
@@ -207,6 +211,10 @@ struct ScheduleEditor: View {
     }
     private func loadRooms() async {
         zones = []; rooms = []; roomsError = nil; roomsLoading = false
+        if store.demo {
+            if !mapID.isEmpty { rooms = (try? DemoContent.boundaries().filter(\.isRoom)) ?? [] }
+            return
+        }
         guard let floor = floors.first(where: { $0.id == mapID }), let robot = store.robot, let api = store.api else { return }
         roomsLoading = true
         defer { if !Task.isCancelled { roomsLoading = false } }

@@ -23,7 +23,7 @@ Requires Xcode 26 or later and iOS 26 or later. The `VacuulaCore` Swift package 
 3. Build and run. Keep the iPhone and Vacuula server on the same local network and allow local network access.
 4. The app discovers servers advertising `_vacuula._tcp`. If none are found, enter a hostname or server address.
 
-For a preview without a server, add `--demo` to the scheme’s launch arguments. Preview mode disables physical robot controls; schedule edits stay in memory. `--read-only` connects to a real server with physical controls and schedule changes disabled.
+For a preview without a server, tap **Try demo** on the connection screen or in Settings. The `--demo` launch argument opens the same sample mode for tests. Preview mode disables physical robot controls; schedule edits stay in memory. `--read-only` connects to a real server with physical controls and schedule changes disabled.
 
 ```sh
 swift test --package-path ios
@@ -47,6 +47,8 @@ History can distinguish scheduled runs from other sources when the robot reports
 - [Discovery notes](discovery-notes.md), with placeholder device identifiers
 - [Proposed server schedule/run association](server-schedule-run-association-spec.md)
 - [Icon artwork](ios/Design/README.md)
+- [Visible demo and offline tests](ios/demo-mode.md)
+- [Privacy policy](PRIVACY.md)
 
 Raw device captures, firmware backups, generated screenshots, build outputs and Xcode user settings are excluded from the public repository. Published test fixtures use anonymous identifiers and a synthetic floor map. Historical documents may reference local evidence files that are not published.
 

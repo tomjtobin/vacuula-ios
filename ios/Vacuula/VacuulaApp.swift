@@ -58,7 +58,17 @@ struct RootView: View {
                     .tabItem { Label("Settings", systemImage: "gearshape") }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
-                if let item = store.activityBanner { ActivityBanner(item: item) }
+                VStack(spacing: 0) {
+                    if store.demo {
+                        HStack {
+                            Label("Demo · Sample data", systemImage: "play.rectangle")
+                            Spacer()
+                            Button("Exit demo") { store.exitDemo() }.accessibilityIdentifier("exit-demo")
+                        }.font(.footnote).padding(.horizontal).padding(.vertical, 8)
+                            .background(.thinMaterial).accessibilityIdentifier("demo-banner")
+                    }
+                    if let item = store.activityBanner { ActivityBanner(item: item) }
+                }
             }
             .sheet(isPresented: $store.showActivity) { NavigationStack { ActivityView() } }
         } else {
@@ -129,6 +139,12 @@ struct ConnectionView: View {
             }
         }
         .navigationTitle("Vacuula")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Try demo", systemImage: "play.rectangle") { store.enterDemo() }
+                    .accessibilityIdentifier("try-demo").disabled(store.pending != nil)
+            }
+        }
     }
 }
 
@@ -145,7 +161,7 @@ struct RobotView: View {
                     } description: {
                         Text("Connect a robot to this server to see its status here.")
                     }
-                    if let url = store.server?.origin.appendingPathComponent("web") { Link("Open server setup", destination: url) }
+                    if !store.demo, let url = store.server?.origin.appendingPathComponent("web") { Link("Open server setup", destination: url) }
                 } else if let robot = store.robot {
                     if store.robots.count > 1 {
                         Section {
@@ -322,6 +338,12 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
+                if store.demo { Text("Sample data only. Robot controls are disabled; schedule edits stay in this session.").foregroundStyle(.secondary) }
+                Button(store.demo ? "Exit demo" : "Try demo", systemImage: "play.rectangle") {
+                    if store.demo { store.exitDemo() } else { store.enterDemo() }
+                }.disabled(store.pending != nil)
+            } header: { Text("Demo") }
+            Section {
                 Picker("Rotation", selection: $store.mapRotation) {
                     ForEach(MapRotation.allCases) { rotation in
                         Text(rotation.title).tag(rotation)
@@ -340,7 +362,7 @@ struct SettingsView: View {
                 if let version = store.serverInfo?.version { LabeledContent("Version", value: version) }
                 if let timezone = store.serverInfo?.timezone { LabeledContent("Time zone", value: timezone) }
                 Button("Find another server", systemImage: "network") { store.findServers() }.disabled(store.pending != nil || store.demo)
-                if let url = store.server?.origin.appendingPathComponent("web") { Link(destination: url) { Label("Open web app", systemImage: "safari") } }
+                if !store.demo, let url = store.server?.origin.appendingPathComponent("web") { Link(destination: url) { Label("Open web app", systemImage: "safari") } }
             }
             if let robot = store.robot {
                 Section("Robot") {
@@ -355,7 +377,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                 Button("Open app settings") { openURL(URL(string: UIApplication.openSettingsURLString)!) }
             } header: { Text("Local network") }
-            Section { LabeledContent("App version", value: "0.1 · First build") }
+            Section { LabeledContent("App version", value: "\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"))") }
         }.navigationTitle("Settings")
     }
 }

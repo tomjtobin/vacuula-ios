@@ -16,7 +16,7 @@ A SwiftUI LAN client for the existing Vacuula server. Open [Vacuula.xcodeproj](V
 - Global saved map orientation at 0°/90°/180°/270°, including room/no-go overlays and base position. See [map-orientation.md](map-orientation.md).
 - Server details, robot identity, local network recovery and links to the web app for setup and room editing.
 
-No cleaning or movement request runs at launch or reconnect. The `--demo` launch argument uses preview data and disables physical controls (schedule edits stay in memory); it makes no network requests. Preview UI tests use that mode; the separate live UI check uses `--read-only` and requires the configured LAN server.
+No cleaning or movement request runs at launch or reconnect. Use **Try demo** from the connection toolbar or Settings to explore with sample data. **Exit demo** restores normal connection behavior. The `--demo` launch argument opens the same sample-data mode for automated tests. Demo disables physical controls, removes the API client, and keeps schedule edits/read markers in memory; it makes no server requests. Real server selection, cleaning options and map rotation are preserved. Preview UI tests use that mode; the separate live UI checks use `--read-only`, require the configured LAN server and are skipped unless the test runner environment contains `VACUULA_LIVE_TESTS=1`.
 
 `--demo --dark-preview` also forces Dark Mode for visual testing. At accessibility text sizes the decorative robot is omitted to prioritize status and controls.
 
@@ -40,7 +40,7 @@ xcodebuild -project ios/Vacuula.xcodeproj -scheme Vacuula \
 swift test --package-path ios
 ```
 
-Run the scheme's UI tests on a simulator to verify preview navigation, disabled robot controls, large text and Dark Mode. UI tests retain screenshots as test attachments. The package’s protocol tests use anonymized response examples, a synthetic floor map and synthetic edge cases; they do not contact the robot.
+Run the scheme's UI tests on a simulator to verify preview navigation, disabled robot controls, large text and Dark Mode. UI tests retain screenshots as test attachments. The package’s protocol tests use anonymized response examples, a synthetic floor map and synthetic edge cases; they do not contact the robot. `DemoContent` supplies shared map, zone, schedule and history fixtures for both the app and core tests. The visible demo navigation UI test uses `--demo-entry` to show the real connection screen without starting discovery, then enters demo through the button.
 
 ## Design
 
@@ -79,3 +79,7 @@ The Robot toolbar bell opens recent notification history supplied by server PR #
 ## License
 
 GNU Affero General Public License, version 3 (AGPL-3.0), matching the Vacuula server. This includes the app’s original D-shaped icon artwork. See [LICENSE](../LICENSE) and the [project license scope](../README.md#license).
+
+## Distribution troubleshooting
+
+See [distribution notes](distribution.md) for the confirmed Apple/Homebrew rsync packaging conflict and the scoped Xcode launcher.

@@ -1,6 +1,47 @@
 import XCTest
 
 final class VacuulaUITests: XCTestCase {
+    func testVisibleDemoNavigatesMainScreensAndExits() throws {
+        let app = XCUIApplication()
+        // Show the actual connection UI without discovering or contacting a server.
+        app.launchArguments = ["--demo-entry"]
+        app.launch()
+        XCTAssertTrue(app.buttons["try-demo"].waitForExistence(timeout: 10))
+        app.buttons["try-demo"].tap()
+        XCTAssertTrue(app.buttons["exit-demo"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["Start cleaning"].isEnabled)
+        app.buttons["activity-button"].tap()
+        XCTAssertTrue(app.navigationBars["Activity"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Scheduled clean couldn’t start"].exists)
+        app.buttons["Done"].tap()
+        app.tabBars.buttons["Rooms"].tap()
+        app.buttons["floor.preview-map"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["floor-map-image"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Preview room"].exists)
+        app.tabBars.buttons["Schedule"].tap()
+        XCTAssertTrue(app.buttons["add-schedule"].waitForExistence(timeout: 5))
+        app.buttons["add-schedule"].tap()
+        XCTAssertTrue(app.navigationBars["New schedule"].waitForExistence(timeout: 5))
+        app.buttons["Cancel"].tap()
+        app.tabBars.buttons["History"].tap()
+        let run = app.buttons["cleaning-record-preview-done"]
+        if !run.isHittable { app.swipeUp() }
+        XCTAssertTrue(run.waitForExistence(timeout: 5))
+        run.tap()
+        XCTAssertTrue(app.navigationBars["Clean details"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["run-area-comparison"].exists)
+        app.tabBars.buttons["Settings"].tap()
+        XCTAssertTrue(app.buttons["map-rotation-picker"].waitForExistence(timeout: 5))
+        capture("Visible demo — Settings")
+        app.buttons["exit-demo"].tap()
+        XCTAssertTrue(app.buttons["try-demo"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.tabBars.buttons["Robot"].exists)
+        // A second visit starts a fresh sample session.
+        app.buttons["try-demo"].tap()
+        XCTAssertTrue(app.buttons["exit-demo"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["Start cleaning"].isEnabled)
+    }
+
     func testGlobalMapRotationKeepsMapAndOverlaysVisible() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--demo-map"]
@@ -95,13 +136,13 @@ final class VacuulaUITests: XCTestCase {
         let comparison = app.descendants(matching: .any).matching(identifier: "run-area-comparison").firstMatch
         XCTAssertTrue(area.waitForExistence(timeout: 5))
         XCTAssertTrue(area.label.contains("237 sq ft"))
-        XCTAssertTrue(comparison.label.contains("88%"))
+        XCTAssertTrue(comparison.label.contains("92%"))
         capture("Cleaning History Stats")
     }
 
     func testScheduleCreationEditingAndDeletionInPreview() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["--demo"]
+        app.launchArguments = ["--demo", "--demo-empty-schedules"]
         app.launch()
         XCTAssertTrue(app.tabBars.buttons["Schedule"].waitForExistence(timeout: 10))
         app.tabBars.buttons["Schedule"].tap()
@@ -126,6 +167,7 @@ final class VacuulaUITests: XCTestCase {
     }
 
     func testLiveDiscoveryStatusAndMapReadOnly() throws {
+        guard ProcessInfo.processInfo.environment["VACUULA_LIVE_TESTS"] == "1" else { throw XCTSkip("Set VACUULA_LIVE_TESTS=1 to run an explicit read-only LAN check.") }
         let app = XCUIApplication()
         app.launchArguments = ["--read-only"]
         addUIInterruptionMonitor(withDescription: "Local network permission") { alert in
@@ -155,7 +197,7 @@ final class VacuulaUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Start cleaning"].isEnabled)
         capture("Robot")
         app.tabBars.buttons["Rooms"].tap()
-        XCTAssertTrue(app.staticTexts["No saved maps yet"].exists)
+        XCTAssertTrue(app.buttons["floor.preview-map"].exists)
         capture("Rooms")
         app.tabBars.buttons["Settings"].tap()
         let serverName = app.descendants(matching: .any).matching(identifier: "server-name").firstMatch
@@ -210,7 +252,7 @@ final class VacuulaUITests: XCTestCase {
         add(attachment)
     }
 
-    func testActivitySummaryAndReadMarkers() throws {
+    func testActivitySummaryAndReadMarkersResetBetweenDemoSessions() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--demo-activity", "--reset-activity-read"]
         app.launch()
@@ -233,7 +275,7 @@ final class VacuulaUITests: XCTestCase {
         app.launchArguments = ["--demo", "--demo-activity"]
         app.launch()
         XCTAssertTrue(app.buttons["activity-button"].waitForExistence(timeout: 10))
-        XCTAssertEqual(app.buttons["activity-button"].label, "Activity", "Read markers should survive relaunch.")
+        XCTAssertEqual(app.buttons["activity-button"].label, "Activity, 3 unread", "Demo read markers must reset without changing real server read markers.")
     }
 
     func testForegroundActivityBanner() throws {
@@ -251,6 +293,7 @@ final class VacuulaUITests: XCTestCase {
     }
 
     func testLiveActivityReadOnly() throws {
+        guard ProcessInfo.processInfo.environment["VACUULA_LIVE_TESTS"] == "1" else { throw XCTSkip("Set VACUULA_LIVE_TESTS=1 to run an explicit read-only LAN check.") }
         let app = XCUIApplication()
         app.launchArguments = ["--read-only"]
         app.launch()

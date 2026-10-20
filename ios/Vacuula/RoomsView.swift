@@ -7,7 +7,7 @@ struct RoomsView: View {
         List {
             if store.maps.isEmpty {
                 ContentUnavailableView("No saved maps yet", systemImage: "map", description: Text("Save a floor map in the web app, then configure cleaning zones to choose rooms here. Whole-house cleaning is available in Robot."))
-                if let url = store.server?.origin.appendingPathComponent("web/map") { Link("Open maps in web app", destination: url) }
+                if !store.demo, let url = store.server?.origin.appendingPathComponent("web/map") { Link("Open maps in web app", destination: url) }
             } else {
                 Section {
                     ForEach(store.maps) { map in
@@ -80,7 +80,7 @@ struct FloorDetailView: View {
                 Section {
                     if rooms.isEmpty {
                         ContentUnavailableView("No rooms configured", systemImage: "square.dashed", description: Text("Add cleaning zones to this map in the web app. They’ll appear here after you refresh."))
-                        if let url = store.server?.origin.appendingPathComponent("web/map") { Link("Configure rooms in web app", destination: url) }
+                        if !store.demo, let url = store.server?.origin.appendingPathComponent("web/map") { Link("Configure rooms in web app", destination: url) }
                     } else {
                         ForEach(rooms) { room in
                             Button {
@@ -120,10 +120,9 @@ struct FloorDetailView: View {
     private func load() async {
         if store.demo {
             defer { loading = false }
-            guard ProcessInfo.processInfo.arguments.contains("--demo-map") else { return }
             do {
-                let raster = try JSONDecoder().decode(MapRaster.self, from: Data(#"{"width":8,"height":4,"legend":{"0":"unknown","1":"free","2":"wall"},"rle":[[2,9],[1,6],[2,2],[1,2],[2,1],[1,3],[2,9]],"metadata":{"origin_x":0,"origin_y":0,"resolution":1},"img_size":[8,4],"base":[1,2]}"#.utf8))
-                let zones = try JSONDecoder().decode([Boundary].self, from: Data(##"[{"id":"room","name":"Preview room","type":"polygon","function":"cleaning","enabled":true,"color":"#00aabb","vertices":[[0.18,0.2],[0.8,0.2],[0.8,0.8],[0.18,0.8]]},{"id":"nogo","name":"No-go","type":"line","function":"nogo","enabled":true,"vertices":[[0.6,0.2],[0.6,0.7]]}]"##.utf8))
+                let raster = try DemoContent.raster()
+                let zones = try DemoContent.boundaries()
                 rendered = try RenderedMap.make(raster, boundaries: zones); boundaries = zones
             } catch { self.error = error.localizedDescription }
             return

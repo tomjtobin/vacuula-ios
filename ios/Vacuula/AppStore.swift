@@ -57,7 +57,7 @@ final class AppStore: ObservableObject {
     private var session = UUID()
     private var robotSession = UUID()
     private let defaults: UserDefaults
-    let demo: Bool
+    @Published private(set) var demo: Bool
     let readOnly: Bool
 
     init(defaults: UserDefaults = .standard) {
@@ -67,7 +67,7 @@ final class AppStore: ObservableObject {
         mapRotation = MapRotation.load(defaults: defaults)
     }
     var robot: Robot? { robots.first { $0.id == selectedID } }
-    var api: VacuulaAPI? { server.map { VacuulaAPI(origin: $0.origin) } }
+    var api: VacuulaAPI? { demo ? nil : server.map { VacuulaAPI(origin: $0.origin) } }
     var isFresh: Bool { observedAt.map { Date().timeIntervalSince($0) < 60 } ?? false }
     var canControl: Bool { isActive && !demo && !readOnly && !requiresReconciliation && robot?.connected == true && robot?.supported == true && isFresh && pending == nil && !refreshing }
     var saved: ServerIdentity? {
@@ -118,13 +118,15 @@ final class AppStore: ObservableObject {
         guard isActive, !historyLoading else { return }
         if demo {
             if !historyLoaded {
-                let json = #"[{"id":"preview-done","robot":"preview","started_by":"app","cleaning_complete":true,"battery_consumed":12,"timing":{"start":"2026-10-18T16:00:00Z","end":"2026-10-18T16:28:00Z"},"runs":[{"track_uuid":"","state":"done","stats":{"area":22},"settings":{"mode":"turbo","navigation_mode":"normal"}}]},{"id":"preview-cancelled","robot":"preview","started_by":"schedule","cleaning_complete":true,"timing":{"start":"2026-10-19T08:40:00Z","end":"2026-10-19T08:42:32Z"},"runs":[{"track_uuid":"","state":"canceled","stats":{"area":1.28}}]}]"#
-                cleaningHistory = CleaningRecord.sessions((try? JSONDecoder().decode([CleaningRecord].self, from: Data(json.utf8))) ?? [], robot: "preview")
-                let map = try? JSONDecoder().decode(FloorMap.self, from: Data(#"{"id":"preview-area","name":"Preview floor","promoted":true}"#.utf8))
-                let raster = try? JSONDecoder().decode(MapRaster.self, from: Data(#"{"width":5,"height":5,"legend":{"1":"free"},"rle":[[1,25]],"img_size":[5,5],"metadata":{"resolution":1000}}"#.utf8))
-                if let map, let raster, let saved = try? SavedMapArea(map: map, raster: raster, boundaries: []) {
-                    requestedAreas = await calculateRequestedAreas(cleaningHistory, maps: [saved])
+                let demoSession = robotSession
+                cleaningHistory = CleaningRecord.sessions((try? DemoContent.history()) ?? [], robot: "preview")
+                if let map = try? DemoContent.floor(), let raster = try? DemoContent.raster(),
+                   let zones = try? DemoContent.boundaries(), let saved = try? SavedMapArea(map: map, raster: raster, boundaries: zones) {
+                    let areas = await calculateRequestedAreas(cleaningHistory, maps: [saved])
+                    guard demo, robotSession == demoSession else { return }
+                    requestedAreas = areas
                 }
+                guard demo, robotSession == demoSession else { return }
                 historyLoaded = true
             }
             return
@@ -191,7 +193,7 @@ final class AppStore: ObservableObject {
     }
     /// Writes once, then reads back. An ambiguous result requires an explicit refresh before another write.
     func saveSchedule(_ event: CleaningSchedule?, deleting id: String? = nil) async -> Bool {
-        guard canEditSchedule, let api, let robot else { return false }
+        guard canEditSchedule, let robot else { return false }
         let token = robotSession
         pending = "Saving schedule…"; scheduleError = nil
         defer { if token == robotSession { pending = nil } }
@@ -208,6 +210,7 @@ final class AppStore: ObservableObject {
                 }
                 return true
             }
+            guard let api else { return false }
             try assertCurrent(token)
             try await api.command(robot, payload: payload)
             try assertCurrent(token)
@@ -235,6 +238,7 @@ final class AppStore: ObservableObject {
     func markActivityRead(_ id: Int64? = nil) {
         if let id, activity.readIDs.contains(id) || !activity.items.contains(where: { $0.id == id }) { return }
         if let id { activity.markRead(id) } else { activity.markAllRead() }
+        guard !demo else { return }
         if let data = try? JSONEncoder().encode(Array(activity.readIDs)) { defaults.set(data, forKey: activityReadKey) }
     }
     func refreshActivity(older: Bool = false) async {
@@ -276,6 +280,7 @@ final class AppStore: ObservableObject {
         guard lifecycleTask == nil else { return }
         lifecycleTask = Task {
             if demo { loadDemo(); return }
+            if ProcessInfo.processInfo.arguments.contains("--demo-entry") { connection = .manual; return }
             if let saved {
                 connection = .connecting; server = saved
                 let target = (try? await discovery.remembered(saved)) ?? saved
@@ -287,12 +292,13 @@ final class AppStore: ObservableObject {
         }
     }
     func findServers() {
-        guard pending == nil else { return }
+        guard !demo, pending == nil else { return }
         suspend(); lifecycleTask = nil
         isActive = true
         lifecycleTask = Task { await discover() }
     }
     private func discover() async {
+        guard !demo, !Task.isCancelled else { return }
         connection = .searching; connectionMessage = nil; candidates = []; candidateErrors = [:]
         do {
             let found = try await discovery.scan()
@@ -314,12 +320,14 @@ final class AppStore: ObservableObject {
         catch { connectionMessage = error.localizedDescription; connection = .failed }
     }
     func choose(_ target: ServerIdentity) {
+        guard !demo else { return }
         lifecycleTask?.cancel()
         lifecycleTask = Task {
             if !(await connect(target)), !Task.isCancelled { connection = .choose }
         }
     }
     func manual(_ text: String) {
+        guard !demo else { return }
         do {
             let url = try ServerIdentity.normalizedURL(text)
             let target = ServerIdentity(origin: url, name: url.host ?? "Vacuula Server")
@@ -330,6 +338,7 @@ final class AppStore: ObservableObject {
         } catch { connectionMessage = error.localizedDescription }
     }
     @discardableResult private func connect(_ target: ServerIdentity) async -> Bool {
+        guard !demo else { return false }
         connection = .connecting; connectionMessage = nil
         do {
             let api = VacuulaAPI(origin: target.origin)
@@ -349,7 +358,7 @@ final class AppStore: ObservableObject {
         }
     }
     func select(_ id: String) {
-        guard pending == nil else { return }
+        guard !demo, pending == nil else { return }
         robotTask?.cancel(); commandTask?.cancel(); refreshTask?.cancel()
         selectedID = id; robotSession = UUID(); state = nil; observedAt = nil; maps = []; notice = nil; requiresReconciliation = false
         resetActivity(); resetSchedule()
@@ -553,7 +562,11 @@ final class AppStore: ObservableObject {
     }
     func resume() {
         isActive = true
-        if demo { if state == nil { loadDemo() }; return }
+        if demo {
+            if state == nil { loadDemo() }
+            else { observedAt = Date(); scheduleNeedsRefresh = false }
+            return
+        }
         if connection == .connected {
             lifecycleTask = Task {
                 guard let api else { return }
@@ -562,17 +575,34 @@ final class AppStore: ObservableObject {
             }
         } else { start() }
     }
+    func enterDemo() {
+        guard !demo, pending == nil else { return }
+        suspend()
+        demo = true; isActive = true; showActivity = false
+        loadDemo()
+    }
+    func exitDemo() {
+        guard demo else { return }
+        suspend(); showActivity = false
+        server = nil; serverInfo = nil; robots = []; selectedID = nil; maps = []
+        state = nil; notice = nil; requiresReconciliation = false
+        resetActivity(); resetSchedule()
+        mapRotation = MapRotation.load(defaults: defaults)
+        demo = false; isActive = true; connection = .searching
+        start()
+    }
     private func loadDemo() {
         server = ServerIdentity(origin: URL(string: "http://vacuula.local")!, name: "Vacuula Server")
         robots = [Robot(id: "preview", type: "neato.gen4", connected: true, name: "Vacuula", labelSerial: "Preview")]
         selectedID = "preview"; connection = .connected
-        if ProcessInfo.processInfo.arguments.contains("--reset-activity-read") { defaults.removeObject(forKey: activityReadKey) }
         resetActivity(); resetSchedule()
-        if ProcessInfo.processInfo.arguments.contains("--demo-map") {
-            mapRotation = .degrees0
-            maps = (try? JSONDecoder().decode([FloorMap].self, from: Data(#"[{"id":"preview-map","name":"Preview floor","promoted":true}]"#.utf8))) ?? []
-        }
-        if ProcessInfo.processInfo.arguments.contains("--demo-activity") {
+        activity = ActivityTimeline()
+        mapRotation = .degrees0
+        maps = (try? DemoContent.floor()).map { [$0] } ?? []
+        schedules = ProcessInfo.processInfo.arguments.contains("--demo-empty-schedules") ? [] : (try? DemoContent.schedules()) ?? []
+        scheduleLoaded = true
+        serverInfo = try? JSONDecoder().decode(ServerInfo.self, from: Data(#"{"version":"Demo","timezone":"America/Los_Angeles"}"#.utf8))
+        if !ProcessInfo.processInfo.arguments.contains("--demo") || ProcessInfo.processInfo.arguments.contains("--demo-activity") {
             let now = Date()
             let formatter = ISO8601DateFormatter()
             let samples = [

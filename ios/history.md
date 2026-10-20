@@ -37,4 +37,4 @@ Read-only live response: [validation/history/live-runs.json](validation/history/
 
 Earlier validation covered schedule loading/failure disabled states, schedule create/edit/delete and history statistics. The automatic-area update builds successfully and passes all 39 core tests. A read-only check of the current server’s active map and no-go polygon produces about 268 sq ft of estimated cleanable area. No robot control or schedule mutation was issued.
 
-Automatic-area validation adds geometry, unit conversion, no-go polygon/line, room union, missing scope and ambiguous map tests. The preview history test verifies an automatic 88% estimate without an area editor. See local validation artifacts for this run’s results.
+Automatic-area validation adds geometry, unit conversion, no-go polygon/line, room union, missing scope and ambiguous map tests. The preview history test verifies an automatic 92% estimate without an area editor. See local validation artifacts for this run’s results.
