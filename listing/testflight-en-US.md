@@ -1,6 +1,6 @@
 # Vacuula Remote — external TestFlight listing draft
 
-Status: Beta App Description and Marketing URL saved and verified in App Store Connect through Safari. What to Test, privacy policy and review information remain drafts; not submitted to Beta App Review. Private contact details are saved. The visible demo is implemented locally and requires uploading the new build before review. Observed builds 1 and 2 are both Internal Only. Build 3 must be uploaded using the normal App Store Connect option for external eligibility.
+Status: Beta App Description, Marketing URL, feedback email, private contact, published privacy URL and build-3 reviewer demo instructions saved in App Store Connect through Safari. What to Test remains prepared for the next uploaded build; not submitted to Beta App Review. Private contact details are saved. The visible demo is implemented locally and requires uploading the new build before review. Observed builds 1 and 2 are both Internal Only. Build 3 must be uploaded using the normal App Store Connect option for external eligibility.
 
 ## Identity
 
@@ -83,3 +83,7 @@ Sources:
 - https://developer.apple.com/help/app-store-connect/test-a-beta-version/invite-external-testers/
 - https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers
 - https://developer.apple.com/documentation/appstoreconnectapi/beta-app-review-submissions
+
+## Build-3 validation
+
+All 42 core tests pass, and the signed 0.1.0 (3) archive is ready locally. UI tests were added but could not start because both simulator attempts stalled at the Apple boot screen. Navigation is not yet verified by this run. Build 3 is not uploaded or submitted.
