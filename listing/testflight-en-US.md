@@ -86,4 +86,4 @@ Sources:
 
 ## Build-3 validation
 
-All 42 core tests pass, and the signed 0.1.0 (3) archive is ready locally. UI tests were added but could not start because both simulator attempts stalled at the Apple boot screen. Navigation is not yet verified by this run. Build 3 is not uploaded or submitted.
+All 42 core tests pass. Four focused UI tests passed on a physical iPhone 17: visible demo entry/exit and navigation, activity read markers, automatic history area comparisons, and schedule creation/editing/deletion. The simulator attempts stalled at boot; physical-device validation completed instead. Demo tests use sample data and send no robot commands. The signed 0.1.0 (3) archive was refreshed after the device fixes. Build 3 is not uploaded or submitted.

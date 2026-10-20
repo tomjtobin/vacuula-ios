@@ -28,3 +28,11 @@ xcodebuild -project ios/Vacuula.xcodeproj -scheme Vacuula \
 `--demo` starts directly in sample mode for focused tests. `--demo-cleaning`, `--demo-bin-missing`, `--demo-schedule-loading`, `--demo-schedule-error`, `--demo-activity` and `--demo-banner` provide existing scenarios. `--demo-empty-schedules` starts with no sample schedule for creation/deletion tests. Launch arguments are test conveniences; reviewers use the visible Try demo button.
 
 This tests presentation and local behavior. Real discovery, protocol/server compatibility, schedule execution and physical cleaning require separate supervised hardware validation.
+
+## Physical-device UI tests
+
+Select a paired, unlocked iPhone as the test destination. The VacuulaUITests target must have a development team as well as the app target. Live tests remain opt-in; the demo suite never requires a robot connection.
+
+On a machine where parallel Swift compilation causes memory pressure, use `-jobs 1 SWIFT_COMPILATION_MODE=wholemodule` for a one-off `xcodebuild test` run. This does not change the release configuration.
+
+Validated on a physical iPhone 17 on 2026-10-19: visible demo entry/exit and navigation, activity read-marker reset, automatic history/map-area comparisons, and schedule creation/editing/deletion all passed. The navigation check visits all five tabs plus Activity, map, schedule and clean-detail screens. These four focused checks use sample data only.

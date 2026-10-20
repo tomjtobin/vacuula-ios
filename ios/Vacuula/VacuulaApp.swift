@@ -65,7 +65,7 @@ struct RootView: View {
                             Spacer()
                             Button("Exit demo") { store.exitDemo() }.accessibilityIdentifier("exit-demo")
                         }.font(.footnote).padding(.horizontal).padding(.vertical, 8)
-                            .background(.thinMaterial).accessibilityIdentifier("demo-banner")
+                            .background(.thinMaterial)
                     }
                     if let item = store.activityBanner { ActivityBanner(item: item) }
                 }
@@ -141,7 +141,7 @@ struct ConnectionView: View {
         .navigationTitle("Vacuula")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Try demo", systemImage: "play.rectangle") { store.enterDemo() }
+                Button("Try demo") { store.enterDemo() }
                     .accessibilityIdentifier("try-demo").disabled(store.pending != nil)
             }
         }
