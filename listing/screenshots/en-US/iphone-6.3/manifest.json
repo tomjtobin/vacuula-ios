@@ -1,0 +1,30 @@
+[
+  {
+    "file": "01-robot-ready.png",
+    "source": "Screenshot 2026-10-19 at 22.45.26.png",
+    "width": 1206,
+    "height": 2622,
+    "sha256": "d6a1de8ee93aa617b6103a4ec55e0ebe72355a081fa04f5e96234ffebd183bea"
+  },
+  {
+    "file": "02-cleaning-controls.png",
+    "source": "Screenshot 2026-10-19 at 22.46.35.png",
+    "width": 1206,
+    "height": 2622,
+    "sha256": "d4ef784765b3c5f82e79607f4db1e65cb61fffa37617c1ebe5eecf5726760ffe"
+  },
+  {
+    "file": "03-floor-map.png",
+    "source": "Screenshot 2026-10-19 at 22.45.48.png",
+    "width": 1206,
+    "height": 2622,
+    "sha256": "12d54d1bce96aebf8bfa4470efc2ab799f945741359b761cbaa00ad2675754d4"
+  },
+  {
+    "file": "04-cleaning-history.png",
+    "source": "Screenshot 2026-10-19 at 22.46.10.png",
+    "width": 1206,
+    "height": 2622,
+    "sha256": "bca78705b8215f99d0920321960c107388f07bcbb9b6b55a59cfd2199eb8cd8a"
+  }
+]
