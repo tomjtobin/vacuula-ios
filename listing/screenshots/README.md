@@ -17,3 +17,5 @@ References:
 
 - [Apple screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)
 - [Apple TestFlight information and invitation experience](https://developer.apple.com/help/app-store-connect/test-a-beta-version/provide-test-information)
+
+App Store Connect status (2026-10-19): all four opaque JPEGs processed successfully and appear in this order in the English (U.S.) iPhone with Dynamic Island (medium display) set for the draft iOS version. The original PNG placements were removed after displaying upload errors. No App Store or TestFlight review submission was made as part of adding these assets.
